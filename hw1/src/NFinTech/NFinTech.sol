@@ -76,29 +76,76 @@ contract NFinTech is IERC721 {
 
     function setApprovalForAll(address operator, bool approved) external {
         // TODO: please add your implementaiton here
+        if (operator == address(0))
+            revert ZeroAddress();
+
+        _operatorApproval[msg.sender][operator] = approved;
+        emit ApprovalForAll(msg.sender, operator, approved);
     }
 
     function isApprovedForAll(address owner, address operator) public view returns (bool) {
         // TODO: please add your implementaiton here
+        return _operatorApproval[owner][operator];
     }
 
     function approve(address to, uint256 tokenId) external {
         // TODO: please add your implementaiton here
+        if (to == address(0))
+            revert ZeroAddress();
+
+        address owner = ownerOf(tokenId);
+        if (owner != msg.sender && !isApprovedForAll(owner, msg.sender))
+            revert();
+
+        _tokenApproval[tokenId] = to;
+        emit Approval(owner, to, tokenId);
     }
 
     function getApproved(uint256 tokenId) public view returns (address operator) {
         // TODO: please add your implementaiton here
+        return _tokenApproval[tokenId];
     }
 
     function transferFrom(address from, address to, uint256 tokenId) public {
         // TODO: please add your implementaiton here
+        if (to == address(0))
+            revert ZeroAddress();
+
+        address owner = ownerOf(tokenId);
+        if (
+            owner != from 
+            || (owner != msg.sender && getApproved(tokenId) != msg.sender && !isApprovedForAll(owner, msg.sender))
+        )
+            revert();
+
+        _tokenApproval[tokenId] = address(0);
+
+        _balances[from] -= 1;
+        _balances[to] += 1;
+        _owner[tokenId] = to;
+
+        emit Transfer(from, to, tokenId);
     }
 
     function safeTransferFrom(address from, address to, uint256 tokenId, bytes calldata data) public {
         // TODO: please add your implementaiton here
+        if (_checkOnERC721Received(from, to, tokenId, data))
+            transferFrom(from, to, tokenId);
     }
 
     function safeTransferFrom(address from, address to, uint256 tokenId) public {
         // TODO: please add your implementaiton here
+        if (_checkOnERC721Received(from, to, tokenId, bytes("")))
+            transferFrom(from, to, tokenId);
+    }
+
+    function _checkOnERC721Received(address from, address to, uint256 tokenId, bytes memory data) internal returns (bool) {
+        if (to.code.length > 0) {
+            bytes4 retval = IERC721TokenReceiver(to).onERC721Received(msg.sender, from, tokenId, data);
+            if (retval != 0x150b7a02)
+                revert();
+        }
+
+        return true;
     }
 }
